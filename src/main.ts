@@ -12,37 +12,68 @@ const canvas = document.createElement("canvas");
 canvas.width = 256;
 canvas.height = 256;
 const ctx = canvas.getContext("2d");
-if (ctx) {
-  ctx.fillStyle = "white";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+function clearCanvas() {
+  ctx?.fillRect(0, 0, canvas.width, canvas.height);
 }
+if (ctx) ctx.fillStyle = "white";
+clearCanvas();
 app.appendChild(canvas);
 
+//clear button
 const clearButton = document.createElement("button");
 clearButton.innerText = "clear";
 clearButton.addEventListener("click", () => {
-  points = [];
-  ctx?.fillRect(0, 0, canvas.width, canvas.height);
+  strokes = [];
+  redoStack = [];
+  clearCanvas();
 });
-app.appendChild(clearButton);
+
+//undo button
+const undoButton = document.createElement("button");
+undoButton.innerText = "undo";
+undoButton.addEventListener("click", () => {
+  if (strokes.length > 0) {
+    const lastStroke = strokes.pop();
+    if (lastStroke) redoStack.push(lastStroke);
+    dispatchDrawingChanged();
+  }
+});
+
+//redo button
+const redoButton = document.createElement("button");
+redoButton.innerText = "redo";
+redoButton.addEventListener("click", () => {
+  if (redoStack.length > 0) {
+    const redoPoint = redoStack.pop();
+    if (redoPoint) strokes.push(redoPoint);
+    dispatchDrawingChanged();
+  }
+});
 
 interface Point {
   x: number;
   y: number;
 }
-let points: Point[] = [];
+
+let strokes: Point[][] = [];
+let redoStack: Point[][] = [];
+let currentStroke: Point[] = [];
 
 let isDrawing = false;
+
 canvas.addEventListener("mousedown", (e) => {
   isDrawing = true;
+  currentStroke = [];
   const point: Point = { x: e.offsetX, y: e.offsetY };
-  points.push(point);
+  currentStroke.push(point);
+  strokes.push(currentStroke);
+  redoStack = [];
   dispatchDrawingChanged();
 });
 
 canvas.addEventListener("mouseup", () => {
   isDrawing = false;
-  ctx?.closePath();
 });
 
 canvas.addEventListener("mouseout", () => {
@@ -52,7 +83,7 @@ canvas.addEventListener("mouseout", () => {
 canvas.addEventListener("mousemove", (e) => {
   if (isDrawing) {
     const point: Point = { x: e.offsetX, y: e.offsetY };
-    points.push(point);
+    currentStroke.push(point);
     dispatchDrawingChanged();
   }
 });
@@ -65,15 +96,23 @@ function dispatchDrawingChanged() {
 canvas.addEventListener("drawing-changed", () => {
   if (ctx) {
     ctx.fillStyle = "white";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    clearCanvas();
 
-    if (points.length > 0) {
-      ctx.beginPath();
-      ctx.moveTo(points[0].x, points[0].y);
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i].x, points[i].y);
+    for (const stroke of strokes) {
+      if (stroke.length > 0) {
+        ctx.beginPath();
+        ctx.moveTo(stroke[0].x, stroke[0].y);
+        for (let i = 1; i < stroke.length; i++) {
+          ctx.lineTo(stroke[i].x, stroke[i].y);
+        }
+        ctx.stroke();
       }
-      ctx.stroke();
     }
   }
 });
+
+const actions = document.createElement("div");
+app.appendChild(actions);
+actions.appendChild(clearButton);
+actions.appendChild(undoButton);
+actions.appendChild(redoButton);
