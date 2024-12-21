@@ -45,8 +45,8 @@ const redoButton = document.createElement("button");
 redoButton.innerText = "redo";
 redoButton.addEventListener("click", () => {
   if (redoStack.length > 0) {
-    const redoPoint = redoStack.pop();
-    if (redoPoint) strokes.push(redoPoint);
+    const redoStroke = redoStack.pop();
+    if (redoStroke) strokes.push(redoStroke);
     dispatchDrawingChanged();
   }
 });
@@ -56,18 +56,41 @@ interface Point {
   y: number;
 }
 
-let strokes: Point[][] = [];
-let redoStack: Point[][] = [];
-let currentStroke: Point[] = [];
+interface Stroke {
+  points: Point[];
+  drag(point: Point): void;
+  display(ctx: CanvasRenderingContext2D): void;
+}
+
+function createStroke(initialPoint: Point): Stroke {
+  return{
+    points: [initialPoint],
+    drag(point: Point){
+      this.points.push(point);
+    },
+    display(ctx: CanvasRenderingContext2D): void{
+      if(this.points.length > 0) {
+        ctx.beginPath();
+        ctx.moveTo(this.points[0].x, this.points[0].y);
+                for (let i = 1; i < this.points.length; i++) {
+                    ctx.lineTo(this.points[i].x, this.points[i].y);
+                }
+                ctx.stroke();
+      }
+    }
+  }
+}
+
+let strokes: Stroke[] = [];
+let redoStack: Stroke[] = [];
+//let currentStroke: Point[] = [];
 
 let isDrawing = false;
 
 canvas.addEventListener("mousedown", (e) => {
   isDrawing = true;
-  currentStroke = [];
   const point: Point = { x: e.offsetX, y: e.offsetY };
-  currentStroke.push(point);
-  strokes.push(currentStroke);
+  strokes.push(createStroke(point));
   redoStack = [];
   dispatchDrawingChanged();
 });
@@ -83,7 +106,8 @@ canvas.addEventListener("mouseout", () => {
 canvas.addEventListener("mousemove", (e) => {
   if (isDrawing) {
     const point: Point = { x: e.offsetX, y: e.offsetY };
-    currentStroke.push(point);
+    const currentStroke = strokes[strokes.length - 1];
+    currentStroke.drag(point);
     dispatchDrawingChanged();
   }
 });
@@ -97,16 +121,8 @@ canvas.addEventListener("drawing-changed", () => {
   if (ctx) {
     ctx.fillStyle = "white";
     clearCanvas();
-
-    for (const stroke of strokes) {
-      if (stroke.length > 0) {
-        ctx.beginPath();
-        ctx.moveTo(stroke[0].x, stroke[0].y);
-        for (let i = 1; i < stroke.length; i++) {
-          ctx.lineTo(stroke[i].x, stroke[i].y);
-        }
-        ctx.stroke();
-      }
+    for(const stroke of strokes){
+      stroke.display(ctx);
     }
   }
 });
