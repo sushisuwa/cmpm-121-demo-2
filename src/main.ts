@@ -20,6 +20,31 @@ if (ctx) ctx.fillStyle = "white";
 clearCanvas();
 app.appendChild(canvas);
 
+let lineWidth = 2;
+
+//thin marker button
+const thinButton = document.createElement("button");
+thinButton.innerText = "Thin Marker";
+thinButton.addEventListener("click", () => {
+  lineWidth = 2;
+  updateTool(thinButton);
+});
+
+//thick marker button
+const thickButton = document.createElement("button");
+thickButton.innerText = "Thick Marker";
+thickButton.addEventListener("click", () => {
+  lineWidth = 8;
+  updateTool(thickButton);
+});
+
+function updateTool(selectedButton: HTMLButtonElement) {
+  [thinButton, thickButton].forEach((button) => {
+    button.classList.remove("selectedTool");
+  });
+  selectedButton.classList.add("selectedTool");
+}
+
 //clear button
 const clearButton = document.createElement("button");
 clearButton.innerText = "clear";
@@ -58,27 +83,30 @@ interface Point {
 
 interface Stroke {
   points: Point[];
+  lineWidth: number;
   drag(point: Point): void;
   display(ctx: CanvasRenderingContext2D): void;
 }
 
 function createStroke(initialPoint: Point): Stroke {
-  return{
+  return {
     points: [initialPoint],
-    drag(point: Point){
+    lineWidth: lineWidth,
+    drag(point: Point) {
       this.points.push(point);
     },
-    display(ctx: CanvasRenderingContext2D): void{
-      if(this.points.length > 0) {
+    display(ctx: CanvasRenderingContext2D): void {
+      if (this.points.length > 0) {
         ctx.beginPath();
         ctx.moveTo(this.points[0].x, this.points[0].y);
-                for (let i = 1; i < this.points.length; i++) {
-                    ctx.lineTo(this.points[i].x, this.points[i].y);
-                }
-                ctx.stroke();
+        for (let i = 1; i < this.points.length; i++) {
+          ctx.lineTo(this.points[i].x, this.points[i].y);
+        }
+        ctx.lineWidth = this.lineWidth;
+        ctx.stroke();
       }
-    }
-  }
+    },
+  };
 }
 
 let strokes: Stroke[] = [];
@@ -121,7 +149,7 @@ canvas.addEventListener("drawing-changed", () => {
   if (ctx) {
     ctx.fillStyle = "white";
     clearCanvas();
-    for(const stroke of strokes){
+    for (const stroke of strokes) {
       stroke.display(ctx);
     }
   }
@@ -129,6 +157,10 @@ canvas.addEventListener("drawing-changed", () => {
 
 const actions = document.createElement("div");
 app.appendChild(actions);
+actions.appendChild(thinButton);
+actions.appendChild(thickButton);
 actions.appendChild(clearButton);
 actions.appendChild(undoButton);
 actions.appendChild(redoButton);
+
+updateTool(thinButton);
