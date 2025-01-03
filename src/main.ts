@@ -88,6 +88,27 @@ interface Stroke {
   display(ctx: CanvasRenderingContext2D): void;
 }
 
+interface ToolPreview {
+  x: number | null;
+  y: number | null;
+  lineWidth: number;
+  draw(ctx: CanvasRenderingContext2D): void;
+}
+
+const toolPreview: ToolPreview = {
+  x: null,
+  y: null,
+  lineWidth: lineWidth,
+  draw(ctx: CanvasRenderingContext2D) {
+    if (this.x !== null && this.y !== null) {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.lineWidth / 2, 0, Math.PI * 2);
+      ctx.fillStyle = "black";
+      ctx.fill();
+    }
+  },
+};
+
 function createStroke(initialPoint: Point): Stroke {
   return {
     points: [initialPoint],
@@ -117,6 +138,8 @@ let isDrawing = false;
 
 canvas.addEventListener("mousedown", (e) => {
   isDrawing = true;
+  toolPreview.x = null;
+  toolPreview.y = null;
   const point: Point = { x: e.offsetX, y: e.offsetY };
   strokes.push(createStroke(point));
   redoStack = [];
@@ -137,6 +160,11 @@ canvas.addEventListener("mousemove", (e) => {
     const currentStroke = strokes[strokes.length - 1];
     currentStroke.drag(point);
     dispatchDrawingChanged();
+  } else {
+    toolPreview.x = e.offsetX;
+    toolPreview.y = e.offsetY;
+    toolPreview.lineWidth = lineWidth;
+    dispatchDrawingChanged();
   }
 });
 
@@ -151,6 +179,9 @@ canvas.addEventListener("drawing-changed", () => {
     clearCanvas();
     for (const stroke of strokes) {
       stroke.display(ctx);
+    }
+    if (!isDrawing) {
+      toolPreview.draw(ctx);
     }
   }
 });
