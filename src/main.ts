@@ -20,29 +20,65 @@ if (ctx) ctx.fillStyle = "white";
 clearCanvas();
 app.appendChild(canvas);
 
+const actions = document.createElement("div");
+app.appendChild(actions);
+const selectedTool = document.createElement("div");
+app.appendChild(selectedTool);
+
 let lineWidth = 2;
 
-//thin marker button
-const thinButton = document.createElement("button");
-thinButton.innerText = "Thin Marker";
-thinButton.addEventListener("click", () => {
-  lineWidth = 2;
-  updateTool(thinButton);
-});
+interface Tool {
+  name: string;
+  type: "marker" | "sticker";
+  action?: () => void;
+  lineWidth?: number;
+  stickerEmoji?: string;
+}
 
-//thick marker button
-const thickButton = document.createElement("button");
-thickButton.innerText = "Thick Marker";
-thickButton.addEventListener("click", () => {
-  lineWidth = 8;
-  updateTool(thickButton);
-});
+const tools: Tool[] = [
+  {name: "Thin Marker", type: "marker", lineWidth: 2},
+  {name: "Thick Marker", type: "marker", lineWidth: 8},
+  {name: "😊", type: "sticker", stickerEmoji: "😊"},
+  {name: "🌟", type: "sticker", stickerEmoji: "🌟"},
+  {name: "🍪", type: "sticker", stickerEmoji: "🍪" },
+]
 
-function updateTool(selectedButton: HTMLButtonElement) {
-  [thinButton, thickButton].forEach((button) => {
+const toolButtons: HTMLButtonElement[] = [];
+tools.forEach((tool) => {
+  const button = document.createElement("button")
+  button.innerText = tool.name;
+
+  button.addEventListener("click", () => {
+    if(tool.type === "marker" && tool.lineWidth){
+      lineWidth = tool.lineWidth;
+      toolPreview.sticker = null;
+      dispatchToolMoved(tool.name);
+    }
+
+    if(tool.type === "sticker" && tool.stickerEmoji){
+      toolPreview.sticker = tool.stickerEmoji;
+      dispatchToolMoved(tool.name);
+    }
+
+    updateTool(toolButtons, button);
+  });
+
+  toolButtons.push(button);
+  selectedTool.appendChild(button);
+})
+
+function updateTool(buttons: HTMLButtonElement[], selectedButton: HTMLButtonElement) {
+  buttons.forEach((button) => {
     button.classList.remove("selectedTool");
   });
   selectedButton.classList.add("selectedTool");
+}
+
+function dispatchToolMoved(selectedTool: string): void {
+  const event = new CustomEvent("tool-moved", {
+    detail: {tool: selectedTool},
+  });
+  canvas.dispatchEvent(event);
 }
 
 //clear button
@@ -92,6 +128,7 @@ interface ToolPreview {
   x: number | null;
   y: number | null;
   lineWidth: number;
+  sticker: string | null;
   draw(ctx: CanvasRenderingContext2D): void;
 }
 
@@ -99,12 +136,19 @@ const toolPreview: ToolPreview = {
   x: null,
   y: null,
   lineWidth: lineWidth,
+  sticker: null,
   draw(ctx: CanvasRenderingContext2D) {
     if (this.x !== null && this.y !== null) {
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.lineWidth / 2, 0, Math.PI * 2);
-      ctx.fillStyle = "black";
-      ctx.fill();
+      if(this.sticker){
+        ctx.font = "24px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(this.sticker, this.x, this.y);
+      }else{
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.lineWidth / 2, 0, Math.PI * 2);
+        ctx.fillStyle = "black";
+        ctx.fill();}
     }
   },
 };
@@ -132,8 +176,6 @@ function createStroke(initialPoint: Point): Stroke {
 
 let strokes: Stroke[] = [];
 let redoStack: Stroke[] = [];
-//let currentStroke: Point[] = [];
-
 let isDrawing = false;
 
 canvas.addEventListener("mousedown", (e) => {
@@ -151,6 +193,8 @@ canvas.addEventListener("mouseup", () => {
 });
 
 canvas.addEventListener("mouseout", () => {
+  toolPreview.x = null;
+  toolPreview.y = null;
   isDrawing = false;
 });
 
@@ -164,6 +208,14 @@ canvas.addEventListener("mousemove", (e) => {
     toolPreview.x = e.offsetX;
     toolPreview.y = e.offsetY;
     toolPreview.lineWidth = lineWidth;
+
+    const activeTool = tools.find((tool => tool.type === "sticker" && tool.name === toolPreview.sticker));
+    if(activeTool?.type === "sticker"){
+      toolPreview.sticker = activeTool.stickerEmoji || null;
+    }else{
+      toolPreview.sticker = null;
+    }
+
     dispatchDrawingChanged();
   }
 });
@@ -185,13 +237,6 @@ canvas.addEventListener("drawing-changed", () => {
     }
   }
 });
-
-const actions = document.createElement("div");
-app.appendChild(actions);
-actions.appendChild(thinButton);
-actions.appendChild(thickButton);
 actions.appendChild(clearButton);
 actions.appendChild(undoButton);
 actions.appendChild(redoButton);
-
-updateTool(thinButton);
